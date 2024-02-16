@@ -68,4 +68,13 @@ public class MemberController {
         return memberService.findAll();
     }
 
+    @GetMapping("/{id}")
+    public MemberResponseDto findById(@PathVariable Long id){
+        return memberService.findById(id);
+    }
+
+    @GetMapping("/findbyemail")
+    public MemberResponseDto findByEmail(@RequestParam String email){
+        return memberService.findMyInfo(email);
+    }
 }

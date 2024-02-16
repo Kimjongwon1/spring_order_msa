@@ -2,6 +2,7 @@ package com.encore.ordering.item.controller;
 
 import com.encore.ordering.common.CommonResponse;
 import com.encore.ordering.item.domain.Item;
+import com.encore.ordering.item.dto.ItemQuantityDto;
 import com.encore.ordering.item.dto.ItemReqDto;
 import com.encore.ordering.item.dto.ItemRestDto;
 import com.encore.ordering.item.dto.ItemSerchDto;
@@ -37,6 +38,19 @@ public class ItemController {
         List<ItemRestDto> itemRestDtos = itemService.findAll(itemSerchDto,pageable);
         return new ResponseEntity<>(itemRestDtos,HttpStatus.OK);
     }
+
+    @GetMapping("/findById/{id}")
+    public ResponseEntity<ItemRestDto> findbyId(@PathVariable Long id){
+       ItemRestDto itemRestDtos = itemService.findById(id);
+        return new ResponseEntity<>(itemRestDtos,HttpStatus.OK);
+    }
+    @PostMapping("/updatequantity")
+    public ResponseEntity<CommonResponse> ItemupdateQuantity(@RequestBody List<ItemQuantityDto> itemQuantityDto){
+       itemService.updatequantity(itemQuantityDto);
+        return new ResponseEntity<>(
+                new CommonResponse(HttpStatus.OK,"Item Successfully updated",null)
+                ,HttpStatus.OK);
+    }
     @GetMapping("/{id}/image")
     public ResponseEntity<Resource> getImage(@PathVariable Long id){
             Resource resource = itemService.getImage(id);
@@ -63,6 +77,7 @@ public class ItemController {
                 new CommonResponse(HttpStatus.OK,"Item Successfully delete",item.getId())
                 , HttpStatus.OK);
     }
+
 
 
 }

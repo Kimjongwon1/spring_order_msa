@@ -21,8 +21,8 @@ public class OrderController {
     }
 
     @PostMapping("/create")
-    public ResponseEntity<CommonResponse> orderCreate(@RequestBody List<OrderReqDto> orderReqDtos){
-        Ordering ordering = orderService.create(orderReqDtos);
+    public ResponseEntity<CommonResponse> orderCreate(@RequestBody List<OrderReqDto> orderReqDtos, @RequestHeader("myEmail")String email){
+        Ordering ordering = orderService.create(orderReqDtos,email);
         return new ResponseEntity<>(new CommonResponse(HttpStatus.CREATED,"order successes",ordering.getId()),HttpStatus.CREATED);
     }
 //    @DeleteMapping("/{id}/cancel")

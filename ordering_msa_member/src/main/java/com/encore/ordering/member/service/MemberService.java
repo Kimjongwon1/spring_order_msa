@@ -13,6 +13,7 @@ import org.springframework.stereotype.Service;
 import javax.persistence.EntityNotFoundException;
 import javax.transaction.Transactional;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Service
@@ -53,4 +54,13 @@ public class MemberService {
         return MemberResponseDto.toMemberResponseDto(member);
 
     }
+
+    public MemberResponseDto findById(Long id) {
+       Member member = memberRepository.findById(id).orElseThrow(EntityNotFoundException::new);
+        return MemberResponseDto.toMemberResponseDto(member);
+    }
+
+//    public MemberResponseDto findByEmail(String email) {
+//        return null;
+//    }
 }

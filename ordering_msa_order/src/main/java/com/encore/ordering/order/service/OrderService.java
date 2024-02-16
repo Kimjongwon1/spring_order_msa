@@ -1,51 +1,74 @@
 package com.encore.ordering.order.service;
 
-import com.encore.ordering.order.domain.OrderStatus;
-import com.encore.ordering.order.domain.Ordering;
-import com.encore.ordering.order.dto.OrderReqDto;
-import com.encore.ordering.order.dto.OrderResDto;
-import com.encore.ordering.order.repository.OrderRepository;
+import com.encore.ordering.common.CommonResponse;
+import com.encore.ordering.order.dto.*;
 import com.encore.ordering.order.domain.OrderItem;
+import com.encore.ordering.order.domain.Ordering;
+import com.encore.ordering.order.repository.OrderRepository;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.ResponseEntity;
+import org.springframework.http.client.HttpComponentsClientHttpRequestFactory;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestTemplate;
 
-import javax.persistence.EntityNotFoundException;
 import javax.transaction.Transactional;
-import java.nio.file.AccessDeniedException;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 @Service
 @Transactional
 public class OrderService {
     private final OrderRepository orderRepository;
-    public OrderService(OrderRepository orderRepository) {
+    private  final RestTemplate restTemplate;
+    private final String MEMBER_API = "http://member-service/";
+    private final String ITEM_API = "http://item-service/";
+
+    public OrderService(OrderRepository orderRepository, RestTemplate restTemplate) {
         this.orderRepository = orderRepository;
+        this.restTemplate = restTemplate;
     }
 
-    public Ordering create(List<OrderReqDto> orderReqDtos) {
-//       Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-//       String email = authentication.getName();
-//       Member member =  memberRepository.findByEmail(email).orElseThrow(()->new EntityNotFoundException("not found email"));
-//        Ordering ordering = Ordering.builder()
-//                .member(member)
-//                .build();
-////        ordring객체 생성될때 orderingitem객체도 함께 생성, cascading
-//        for(OrderReqDto orderReqItemDto :orderReqDtos){
-//            Item item = itemRepository.findById(orderReqItemDto.getItemId()).orElseThrow(()->new EntityNotFoundException("아이템이 없습니다."));
-//            OrderItem orderItem = OrderItem.builder()
-//                    .item(item)
-//                    .quantity(orderReqItemDto.getCount())
-//                    .ordering(ordering)
-//                    .build();
-//            ordering.getOrderItems().add(orderItem);
-//            if(item.getStockQuantity() - orderReqItemDto.getCount() < 0){
-//                throw new IllegalArgumentException("재고 부족");
-//            }
-//            orderItem.getItem().updateStockQuantity(item.getStockQuantity() - orderReqItemDto.getCount());
-//        }
-//
-//        return orderRepository.save(ordering);
-        return null;
+    public Ordering create(List<OrderReqDto> orderReqDtos, String email) {
+        String url = MEMBER_API + "member/findbyemail?email="+email;
+        MemberDto member = restTemplate.getForObject(url, MemberDto.class);
+        System.out.println(member);
+        Ordering ordering = Ordering.builder()
+                .memberId(Objects.requireNonNull(member).getId())
+                .build();
+        List<ItemQuantityUpdateDto> itemQuantityUpdateDtos = new ArrayList<>();
+//        ordring객체 생성될때 orderingitem객체도 함께 생성, cascading
+        for(OrderReqDto orderReqItemDto :orderReqDtos){
+            OrderItem orderItem = OrderItem.builder()
+                    .itemId(orderReqItemDto.getItemId())
+                    .quantity(orderReqItemDto.getCount())
+                    .ordering(ordering)
+                    .build();
+            ordering.getOrderItems().add(orderItem);
+            String Itemurl = ITEM_API + "item/findById/"+orderReqItemDto.getItemId();
+           ResponseEntity<ItemDto> itemDtoResponseEntity = restTemplate.getForEntity(Itemurl, ItemDto.class);
+            System.out.println(member);
+            if(itemDtoResponseEntity.getBody().getStockQuantity() - orderReqItemDto.getCount() < 0){
+                throw new IllegalArgumentException("재고 부족");
+            }
+            int newQuantity = itemDtoResponseEntity.getBody().getStockQuantity() - orderReqItemDto.getCount();
+            ItemQuantityUpdateDto updateDto = new ItemQuantityUpdateDto();
+            updateDto.setId(orderReqItemDto.getItemId());
+            updateDto.setStockQuantity(newQuantity);
+            itemQuantityUpdateDtos.add(updateDto);
+        }
+        Ordering ordering1 = orderRepository.save(ordering);
+//        orderRepository.save를 먼저 함으로써 위 코드에서 에러 발생시 item서비스 호출 하지 않으므로,
+//        트랜잭션 문제 발생 x
+        String ItemPatchurl = ITEM_API + "item/updatequantity";
+        HttpEntity<List<ItemQuantityUpdateDto>> entity = new HttpEntity<>(itemQuantityUpdateDtos);
+        ResponseEntity<CommonResponse> response = restTemplate.exchange(ItemPatchurl, HttpMethod.POST, entity, CommonResponse.class);
+//      만약에 위 updateQuantity이후에 추가적인 로직이 존재할경우에 트랜잭션이슈는 여전히 발생가능함
+//        해결책으로 에러 발생할 가능성이 있는 코드 전체를 try catch로 예외 처리 이후에 catch에서 updateRollbackQuantity 호출
+        System.out.println(response.getBody().getMessage());
+        return ordering1;
     }
 //    public Ordering cancel(Long id) {
 //        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
